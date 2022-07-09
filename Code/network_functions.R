@@ -1,0 +1,1 @@
+#this script is creating the basic funtions for the graph analysis

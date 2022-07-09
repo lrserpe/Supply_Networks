@@ -1,0 +1,1 @@
+#this file is creating the functions for the basic deviation analysis
