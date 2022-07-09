@@ -3,7 +3,7 @@
 ```{r}
 library(dplyr)
 library(ggplot2)
-
+library(leaflet)
 ```
 
 ```{r}
@@ -14,21 +14,37 @@ df_all<- read.table("2013_A_S.txt", sep = ";", header=TRUE)
 #Filter by land (column 9 for bayern)
 df_A_2013 <- df_all %>% filter(Land %in% c(9))
 
+
 #Filter by region 
 #df_A_2013 <- df_A_2013 %>% filter((TKNR >2520 & TKNR < 2528) | (TKNR >2620 & TKNR < 2628))
 
 ```
 
+```{r}
+#read in B level data
+df_all_B<- read.table("2013_B_S.txt", sep = ";", header=TRUE)
+
+#Filter by land (column 9 for bayern)
+df_B_2013 <- df_all_B %>% filter(Land %in% c(9))
+
+#Filter by Date
+df_date_range_B <- df_B_2013 %>% filter(Datum>130531 & Datum<130701 )
+#write June data to csv
+write.csv(df_date_range_B, file = "dataB_2013_BH_June.csv")
+
+
+```
+
+
 
 ```{r}
-#read in data 
-
-write.csv(df_A_2013, file = "dataA_2013_BH.csv")
-df_BH <- read.csv("dataA_2013_BH.csv")
+df_BH <- read.csv("input/dataA_2013_BH_June.csv")
+df_BB <-  read.csv("input/dataB_2013_BH_June.csv")
 ```
 
 
 ```{r}
+##Remove Cell ####
 #Filter by Date
 df_date_range <- df_BH %>% filter(Datum>130531 & Datum<130701 )
 #write June data to csv
@@ -39,8 +55,12 @@ df_date_range2 <- df_BH %>% filter(Datum>130131 & Datum<131201 )
 
 
 ```{r}
+
+df_BH_zst1 <-  df_BH %>% filter((Zst == 9171 ))
+
+
 #plot of all reverse and forward counts at each station in June
-ggplot(df_date_range, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
+ggplot(df_BH_zst1, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
   geom_line(aes(color = "R1")) + 
   geom_line(aes(y=KFZ_R2, color = "R2")) +       #plot reverse direction
   facet_wrap(~Zst) + ylab("cars per hour") + theme_bw()  #group by ZST(counting station ID)
@@ -54,8 +74,14 @@ ggplot(df_date_range, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
 
 #For all data points with the same station, date, weekday
 #Sum hourly values to daily values 
-df_daily <- df_date_range %>% group_by( Zst, Datum, Wotag)%>% 
+#for Autobahn
+df_daily_A <- df_BH %>% group_by( Zst, Datum, Wotag)%>% 
   summarise(SUM_KFZ_R1 = sum(KFZ_R1, na.rm = TRUE), SUM_KFZ_R2 = sum(KFZ_R2, na.rm = TRUE))
+
+#for bundestrasse
+df_daily_B <- df_BB %>% group_by( Zst, Datum, Wotag)%>% 
+  summarise(SUM_KFZ_R1 = sum(KFZ_R1, na.rm = TRUE), SUM_KFZ_R2 = sum(KFZ_R2, na.rm = TRUE))
+
 
 ```
 
@@ -64,24 +90,34 @@ df_daily <- df_date_range %>% group_by( Zst, Datum, Wotag)%>%
 
  
 #create new column to assign dates a number (1-30)
-alldates <- sort(unique(df_daily$Datum)) 
+alldates <- sort(unique(df_daily_A$Datum)) 
 alldates_values <- seq(1:length(alldates))
 names(alldates_values) <- alldates
 
 #add new index column to df
-df_daily <- df_daily %>% mutate(day = alldates_values[as.character(Datum)]) 
+df_daily_A <- df_daily_A %>% mutate(day = alldates_values[as.character(Datum)]) 
+df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)]) 
 
 ```
 
 ```{r}
 #Filter by station to observe plot 
-df_daily_zst <- df_daily %>% filter((Zst == 9023 ))
+df_daily_zst_A <- df_daily_A %>% filter((Zst == 9166 ))
+#9295 B
+#9023 A
                                   
 #plot 
-ggplot(df_daily_zst, aes(x = day)) +
+ggplot(df_daily_zst_A, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
   facet_wrap(~Zst) + theme_bw()
+
+df_daily_zst_B <- df_daily_B %>% filter((Zst == 9142 ))
+ggplot(df_daily_zst_B, aes(x = day)) +
+  geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
+  geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
+  facet_wrap(~Zst) + theme_bw()
+
 ```
 
 
@@ -91,20 +127,88 @@ ggplot(df_daily_zst, aes(x = day)) +
 #use mutate function to add column with mean of sum KZR1, KZR2
 #use mutate again to add column for difference between mean and KZR1 value
 
-df_mean <- df_daily %>%  group_by( Zst, Wotag) %>% 
+df_mean_A <- df_daily_A %>%  group_by( Zst, Wotag) %>% 
   mutate(MEAN_KFZ_R1 = mean(SUM_KFZ_R1, na.rm = TRUE), MEAN_KFZ_R2 = mean(SUM_KFZ_R2, na.rm = TRUE)) %>% 
   mutate(DIFF_R1 = 100*(SUM_KFZ_R1-MEAN_KFZ_R1)/MEAN_KFZ_R1, DIFF_R2 = 100*(SUM_KFZ_R2-MEAN_KFZ_R2)/MEAN_KFZ_R2)
+
+df_mean_B <- df_daily_B %>%  group_by( Zst, Wotag) %>% 
+  mutate(MEAN_KFZ_R1 = mean(SUM_KFZ_R1, na.rm = TRUE), MEAN_KFZ_R2 = mean(SUM_KFZ_R2, na.rm = TRUE)) %>% 
+  mutate(DIFF_R1 = 100*(SUM_KFZ_R1-MEAN_KFZ_R1)/MEAN_KFZ_R1, DIFF_R2 = 100*(SUM_KFZ_R2-MEAN_KFZ_R2)/MEAN_KFZ_R2)
+
 ```
 
 
 ```{r}
-df_mean_one_zst <- df_mean %>% filter((Zst == 9023 ))
+
+#identify columns where relative diff is below 50%
+df_dev_A <- df_mean_A %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
+df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
+
+#identify days with normal traffic patterns
+df_dev_low_A <- df_mean_A %>% filter(DIFF_R1 == 0 | DIFF_R2 ==0 )
+df_dev_low_B <- df_mean_B %>% filter(DIFF_R1 < -1 | DIFF_R2 < -1 )
+
+```
+
+```{r}
+df_mean_one_zst <- df_mean_A %>% filter((Zst == 9023 ))
 
 #plot relative difference 
 ggplot(df_mean_one_zst, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + theme_bw()
 
 ```
 
+
+```{r}
+library(leaflet)
+
+df_lonlats <- read.table("input/Jawe2013.csv", sep = ";", header=TRUE) %>% 
+  mutate(lat = as.numeric(gsub(",",".",Koor_WGS84_N)), 
+         lon =  as.numeric(gsub(",",".",Koor_WGS84_E)))
+
+selected_Zst <- unique(df_mean_A$Zst)
+Zst_lonlats_A <- df_lonlats %>% filter(DZ_Nr %in% selected_Zst)
+selected_Zst_B <- unique(df_mean_B$Zst)
+Zst_lonlats_B <- df_lonlats %>% filter(DZ_Nr %in% selected_Zst_B)
+
+
+
+map_A <- leaflet(Zst_lonlats_A) %>% addTiles() %>% 
+  addCircleMarkers(lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red")
+
+map_B <- leaflet(Zst_lonlats_B) %>% addTiles() %>% 
+  addCircleMarkers(data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
+
+map_A
+```
+
+
+```{r}
+#2.1
+arcs <- read.csv("input/Arcs_Flooding.csv")
+nodes <- read.csv("input/Nodes_Flooding.csv")
+
+#create map with nodes
+m <- leaflet(nodes) %>% addTiles() %>% addCircleMarkers(lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 3, label = ~as.character(DZ_Nr))
+
+
+#add arcs(edges)
+for(i in 1:nrow(arcs)){
+  node_ids <- c(arcs$SOURCE_ID[i], arcs$TARGET_ID[i])
+  df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
+  m <- addPolylines(m, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
+}
+
+#add station markers
+m <- addCircleMarkers(m, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+#show map
+m
+```
+
+```
+  
+```
 
 
 
