@@ -1,0 +1,80 @@
+#Group 5 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+```
+
+```{r}
+#Reformat data downloaded from BAST
+
+df_all<- read.table("2013_A_S.txt", sep = ";", header=TRUE)
+
+#Filter by land (column 9 for bayern)
+df_A_2013 <- df_all %>% filter(Land %in% c(3))
+
+#Filter by region 
+#df_A_2013 <- df_A_2013 %>% filter((TKNR >2520 & TKNR < 2528) | (TKNR >2620 & TKNR < 2628))
+
+```
+
+
+```{r}
+#read in data 
+
+write.csv(df_A_2013, file = "dataA_2013_HH.csv")
+df_HH <- read.csv("dataA_2013_HH.csv")
+```
+
+
+```{r}
+#Filter by Date
+df_date_range <- df_HH %>% filter(Datum>160223 & Datum<160228 ) 
+ggplot(df_date_range, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
+  geom_line(aes(color = "R1")) + 
+  geom_line(aes(y=KFZ_R2, color = "R2")) +       #plot reverse direction
+  facet_wrap(~Zst) + ylab("cars per hour") + theme_bw()  #group by ZST(counting station ID)
+
+#plot of all reverse and forwrd counts at each stations between feb 23-28
+```
+
+
+```{r}
+#Finding deviations 
+
+#For all data points with the same station, date, weekday
+#Sum hourly values to daily values 
+df_daily <- df_HH %>% group_by( Zst, Datum, Wotag)%>% 
+  summarise(SUM_KFZ_R1 = sum(KFZ_R1, na.rm = TRUE), SUM_KFZ_R2 = sum(KFZ_R2, na.rm = TRUE))
+
+```
+
+
+```{r}
+
+ 
+#create new column to assign dates a number (1-366)
+alldates <- sort(unique(df_daily$Datum)) 
+alldates_values <- seq(1:length(alldates))
+names(alldates_values) <- alldates
+
+#add new index column to df
+df_daily <- df_daily %>% mutate(day = alldates_values[as.character(Datum)]) 
+
+```
+
+```{r}
+#plot 
+ggplot(df_daily, aes(x = day)) +
+  geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
+  geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
+  facet_wrap(~Zst) + theme_bw()
+```
+
+
+
+
+
+
+
