@@ -12,7 +12,7 @@ library(ggplot2)
 df_all<- read.table("2013_A_S.txt", sep = ";", header=TRUE)
 
 #Filter by land (column 9 for bayern)
-df_A_2013 <- df_all %>% filter(Land %in% c(3))
+df_A_2013 <- df_all %>% filter(Land %in% c(9))
 
 #Filter by region 
 #df_A_2013 <- df_A_2013 %>% filter((TKNR >2520 & TKNR < 2528) | (TKNR >2620 & TKNR < 2628))
@@ -23,20 +23,29 @@ df_A_2013 <- df_all %>% filter(Land %in% c(3))
 ```{r}
 #read in data 
 
-write.csv(df_A_2013, file = "dataA_2013_HH.csv")
-df_HH <- read.csv("dataA_2013_HH.csv")
+write.csv(df_A_2013, file = "dataA_2013_BH.csv")
+df_BH <- read.csv("dataA_2013_BH.csv")
 ```
 
 
 ```{r}
 #Filter by Date
-df_date_range <- df_HH %>% filter(Datum>160223 & Datum<160228 ) 
+df_date_range <- df_BH %>% filter(Datum>130531 & Datum<130701 )
+#write June data to csv
+write.csv(df_date_range, file = "dataA_2013_BH_June.csv")
+
+df_date_range2 <- df_BH %>% filter(Datum>130131 & Datum<131201 )
+```
+
+
+```{r}
+#plot of all reverse and forward counts at each station in June
 ggplot(df_date_range, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
   geom_line(aes(color = "R1")) + 
   geom_line(aes(y=KFZ_R2, color = "R2")) +       #plot reverse direction
   facet_wrap(~Zst) + ylab("cars per hour") + theme_bw()  #group by ZST(counting station ID)
 
-#plot of all reverse and forwrd counts at each stations between feb 23-28
+
 ```
 
 
@@ -45,7 +54,7 @@ ggplot(df_date_range, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
 
 #For all data points with the same station, date, weekday
 #Sum hourly values to daily values 
-df_daily <- df_HH %>% group_by( Zst, Datum, Wotag)%>% 
+df_daily <- df_date_range %>% group_by( Zst, Datum, Wotag)%>% 
   summarise(SUM_KFZ_R1 = sum(KFZ_R1, na.rm = TRUE), SUM_KFZ_R2 = sum(KFZ_R2, na.rm = TRUE))
 
 ```
@@ -54,7 +63,7 @@ df_daily <- df_HH %>% group_by( Zst, Datum, Wotag)%>%
 ```{r}
 
  
-#create new column to assign dates a number (1-366)
+#create new column to assign dates a number (1-30)
 alldates <- sort(unique(df_daily$Datum)) 
 alldates_values <- seq(1:length(alldates))
 names(alldates_values) <- alldates
@@ -65,14 +74,36 @@ df_daily <- df_daily %>% mutate(day = alldates_values[as.character(Datum)])
 ```
 
 ```{r}
+#Filter by station to observe plot 
+df_daily_zst <- df_daily %>% filter((Zst == 9023 ))
+                                  
 #plot 
-ggplot(df_daily, aes(x = day)) +
+ggplot(df_daily_zst, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
   facet_wrap(~Zst) + theme_bw()
 ```
 
 
+```{r}
+#calculate relative difference from mean 
+#filter data to from groups with same counter device and weekday
+#use mutate function to add column with mean of sum KZR1, KZR2
+#use mutate again to add column for difference between mean and KZR1 value
+
+df_mean <- df_daily %>%  group_by( Zst, Wotag) %>% 
+  mutate(MEAN_KFZ_R1 = mean(SUM_KFZ_R1, na.rm = TRUE), MEAN_KFZ_R2 = mean(SUM_KFZ_R2, na.rm = TRUE)) %>% 
+  mutate(DIFF_R1 = 100*(SUM_KFZ_R1-MEAN_KFZ_R1)/MEAN_KFZ_R1, DIFF_R2 = 100*(SUM_KFZ_R2-MEAN_KFZ_R2)/MEAN_KFZ_R2)
+```
+
+
+```{r}
+df_mean_one_zst <- df_mean %>% filter((Zst == 9023 ))
+
+#plot relative difference 
+ggplot(df_mean_one_zst, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + theme_bw()
+
+```
 
 
 
