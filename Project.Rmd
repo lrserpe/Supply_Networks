@@ -4,6 +4,7 @@
 library(dplyr)
 library(ggplot2)
 library(leaflet)
+library(igraph)
 ```
 
 ```{r}
@@ -102,7 +103,7 @@ df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)])
 
 ```{r}
 #Filter by station to observe plot 
-df_daily_zst_A <- df_daily_A %>% filter((Zst == 9166 ))
+df_daily_zst_A <- df_daily_A %>% filter((Zst == 9023 ))
 #9295 B
 #9023 A
                                   
@@ -135,6 +136,7 @@ df_mean_B <- df_daily_B %>%  group_by( Zst, Wotag) %>%
   mutate(MEAN_KFZ_R1 = mean(SUM_KFZ_R1, na.rm = TRUE), MEAN_KFZ_R2 = mean(SUM_KFZ_R2, na.rm = TRUE)) %>% 
   mutate(DIFF_R1 = 100*(SUM_KFZ_R1-MEAN_KFZ_R1)/MEAN_KFZ_R1, DIFF_R2 = 100*(SUM_KFZ_R2-MEAN_KFZ_R2)/MEAN_KFZ_R2)
 
+
 ```
 
 
@@ -147,6 +149,10 @@ df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 #identify days with normal traffic patterns
 df_dev_low_A <- df_mean_A %>% filter(DIFF_R1 == 0 | DIFF_R2 ==0 )
 df_dev_low_B <- df_mean_B %>% filter(DIFF_R1 < -1 | DIFF_R2 < -1 )
+
+#plot deviations at different stations
+ggplot(df_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(2,7) + theme_bw()
+
 
 ```
 
@@ -176,10 +182,9 @@ Zst_lonlats_B <- df_lonlats %>% filter(DZ_Nr %in% selected_Zst_B)
 map_A <- leaflet(Zst_lonlats_A) %>% addTiles() %>% 
   addCircleMarkers(lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red")
 
-map_B <- leaflet(Zst_lonlats_B) %>% addTiles() %>% 
-  addCircleMarkers(data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
+map_A <-  addCircleMarkers(map_A, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
 
-map_A
+
 ```
 
 
@@ -199,16 +204,143 @@ for(i in 1:nrow(arcs)){
   m <- addPolylines(m, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
 }
 
+
 #add station markers
 m <- addCircleMarkers(m, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m <- addCircleMarkers(m, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
 
 #show map
 m
 ```
 
+
+```{r}
+
+#create network graph from arc and nodes
+graph_BH <- graph_from_data_frame(d = arcs[,2:3], vertices = nodes, directed = FALSE)
+
+lo <- as.matrix(nodes[,c("LON","LAT")])
+
+plot(graph_BH, vertex.size = 3, layout=lo, vertex.label = NA)
+
 ```
-  
+
+```{r}
+#Betweeness Centrality 
+
+#blue = 0 betweenes value, red = highest betweeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+between_vals <- centr_betw(graph_BH, directed = FALSE)$res
+graphCol_bet = pal(100)[as.numeric(cut(between_vals,breaks = 100))]
+
+plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 ```
+
+
+```{r}
+#Remove node where large deviation occurred
+arcs_dev <- read.csv("input/Arcs_Flooding_removed9028.csv")
+nodes_dev <- read.csv("input/Nodes_Flooding.csv")
+
+#create map with nodes
+m_dev <- leaflet(nodes_dev) %>% addTiles() %>% addCircleMarkers(lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 3, label = ~as.character(DZ_Nr))
+
+
+#add arcs(edges)
+for(i in 1:nrow(arcs_dev)){
+  node_ids <- c(arcs_dev$SOURCE_ID[i], arcs_dev$TARGET_ID[i])
+  df_pol <- nodes_dev %>% filter(DZ_Nr %in% node_ids)
+  m_dev <- addPolylines(m_dev, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
+}
+
+m_dev
+
+
+#add station markers
+m_dev <- addCircleMarkers(m_dev, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m_dev <- addCircleMarkers(m_dev, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue") 
+
+#show map
+m_dev
+
+
+```
+
+```{r}
+#create network graph from arc and nodes with deviation removed 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
+
+lo <- as.matrix(nodes_dev[,c("LON","LAT")])
+
+plot(graph_BH_dev, vertex.size = 3, layout=lo, vertex.label = NA)
+
+```
+
+
+```{r}
+
+#Betweeness Centrality with deviaiton removed 
+
+#blue = 0 betweenes value, red = highest betweeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+between_vals_dev <- centr_betw(graph_BH_dev, directed = FALSE)$res
+
+graphCol_bet = pal(100)[as.numeric(cut(between_vals_dev,breaks = 100))]
+
+plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+```
+
+```{r}
+
+#Compare betweeness centrality before and after deviation removed 
+
+rel_change <- ifelse(between_vals > 0, (between_vals_dev - between_vals)/between_vals, 0)
+
+#plot igraph:
+#use 3 colors: red - decrease, white - no change, blue - increase
+graphCol_dev = rep("white",length(rel_change))
+nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= between_vals, betdev = between_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
+
+plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+```
+
+```{r}
+
+#plot leaflet map:
+#Here we implemented a more complicated color scheme, such that we have white for no change even if the values are not symmetric (you can do a simpler scale)
+minVal <- abs(min(rel_change))
+maxVal <- abs(max(rel_change))
+rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(maxVal*10)
+rc2 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(minVal*10)
+rampcols <- c(rc2, rc1)
+col_pal <- colorNumeric(palette = rampcols, domain =rel_change)
+
+
+m2 <- leaflet(nodes_dev) %>% addTiles() 
+
+for(i in 1:nrow(arcs_dev)){
+  node_ids <- c(arcs_dev$SOURCE_ID[i], arcs_dev$TARGET_ID[i])
+  df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
+  m2 <- addPolylines(m2, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) 
+}
+m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2
+
+```
+
 
 
 
