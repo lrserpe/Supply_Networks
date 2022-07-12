@@ -103,7 +103,7 @@ df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)])
 
 ```{r}
 #Filter by station to observe plot 
-df_daily_zst_A <- df_daily_A %>% filter((Zst == 9023 ))
+df_daily_zst_A <- df_daily_A %>% filter((Zst == 9026 ))
 #9295 B
 #9023 A
                                   
@@ -194,24 +194,24 @@ arcs <- read.csv("input/Arcs_Flooding.csv")
 nodes <- read.csv("input/Nodes_Flooding.csv")
 
 #create map with nodes
-m <- leaflet(nodes) %>% addTiles() %>% addCircleMarkers(lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 3, label = ~as.character(DZ_Nr))
+m_org <- leaflet(nodes) %>% addTiles() %>% addCircleMarkers(lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 3, label = ~as.character(DZ_Nr))
 
 
 #add arcs(edges)
 for(i in 1:nrow(arcs)){
   node_ids <- c(arcs$SOURCE_ID[i], arcs$TARGET_ID[i])
   df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
-  m <- addPolylines(m, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
+  m_org <- addPolylines(m_org, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
 }
 
 
 #add station markers
-m <- addCircleMarkers(m, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+m_org <- addCircleMarkers(m_org, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
-m <- addCircleMarkers(m, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
+m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
 
 #show map
-m
+m_org
 ```
 
 
@@ -314,8 +314,8 @@ plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.lab
 
 ```{r}
 
-#plot leaflet map:
-#Here we implemented a more complicated color scheme, such that we have white for no change even if the values are not symmetric (you can do a simpler scale)
+#plot relative diff on leaflet map
+# color scheme: such that we have white for no change
 minVal <- abs(min(rel_change))
 maxVal <- abs(max(rel_change))
 rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(maxVal*10)
@@ -341,7 +341,99 @@ m2
 
 ```
 
+```{r}
+#Shortest Path Original Network 
+
+node_from <- which(nodes$DZ_Nr == 9023) #9023
+node_to <- which(nodes$DZ_Nr == 9109)  #9109
+
+path <- shortest_paths(graph_BH, from = node_from, to = node_to, output = "both")
+path_vertices <- unlist(path$vpath)
+path_edges <- unlist(path$epath)
+
+graph_short <- graph_BH %>% 
+  set_vertex_attr("color", index=path_vertices, value="red") %>% 
+  set_edge_attr("color", value="gray") %>% 
+  set_edge_attr("color", index=path_edges, value="red")  
+
+lo <- as.matrix(nodes[,c("LON","LAT")])
+
+plot(graph_short, vertex.size = 15, layout=lo, vertex.label.cex = 0.1)
 
 
+```
+
+```{r}
+#Shortest path with arc weight - original map
+
+node_from <- which(nodes$DZ_Nr == 9023) #9023
+node_to <- which(nodes$DZ_Nr == 9109)  #9109
+
+path_weight <- shortest_paths(graph_BH, from = node_from, to = node_to, output = "both", weights=arcs$ARC_LENGTH)
+path_vertices_w <- unlist(path_weight$vpath)
+path_edges_w <- unlist(path_weight$epath)
+
+graph_short <- graph_short %>% 
+  set_vertex_attr("color", index=path_vertices_w, value="green") %>% 
+  set_edge_attr("color", index=path_edges_w, value="green")
+
+plot(graph_short, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
+
+
+
+```
+
+```{r}
+#Shortest path with arc weight in leaflet map - original map 
+
+#color nodes and vertices of shortest path on map 
+m_org <- addCircleMarkers(m_org, data = nodes %>% filter(DZ_Nr %in% names(path_vertices_w)), lat = ~LAT ,lng = ~LON , color = "orange", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE)
+
+m_org
+```
+
+```{r}
+#Shortest Path Deviation Network 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
+
+node_from <- which(nodes$DZ_Nr == 9023) #9023
+node_to <- which(nodes$DZ_Nr == 9109)  #9109
+
+path_dev <- shortest_paths(graph_BH_dev, from = node_from, to = node_to, output = "both")
+path_vertices_dev <- unlist(path_dev$vpath)
+path_edges_dev <- unlist(path_dev$epath)
+
+graph_short_dev <- graph_BH_dev %>% 
+  set_vertex_attr("color", index=path_vertices_dev, value="red") %>% 
+  set_edge_attr("color", value="gray") %>% 
+  set_edge_attr("color", index=path_edges_dev, value="red")  
+
+lo <- as.matrix(nodes[,c("LON","LAT")])
+
+plot(graph_short_dev, vertex.size = 15, layout=lo, vertex.label.cex = 0.1)
+
+#Shortest path with arc weight - deviation map
+
+node_from <- which(nodes$DZ_Nr == 9023) #9023
+node_to <- which(nodes$DZ_Nr == 9109)  #9109
+
+path_weight_dev <- shortest_paths(graph_BH_dev, from = node_from, to = node_to, output = "both", weights=arcs_dev$ARC_LENGTH)
+path_vertices_w_dev <- unlist(path_weight_dev$vpath)
+path_edges_w_dev <- unlist(path_weight_dev$epath)
+
+graph_short_dev <- graph_short_dev %>% 
+  set_vertex_attr("color", index=path_vertices_w_dev, value="green") %>% 
+  set_edge_attr("color", index=path_edges_w_dev, value="green")
+
+plot(graph_short_dev, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
+
+#Shortest path with arc weight in leaflet map - deviation map 
+
+#color nodes and vertices of shortest path on map 
+m_dev <- addCircleMarkers(m_dev, data = nodes_dev %>% filter(DZ_Nr %in% names(path_vertices_w_dev)), lat = ~LAT ,lng = ~LON , color = "orange", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE)
+
+m_dev
+
+```
 
 
