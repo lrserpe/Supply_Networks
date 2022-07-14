@@ -5,6 +5,7 @@ library(dplyr)
 library(ggplot2)
 library(leaflet)
 library(igraph)
+library(mapview)
 ```
 
 ```{r}
@@ -113,7 +114,7 @@ ggplot(df_daily_zst_A, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
   facet_wrap(~Zst) + theme_bw()
 
-df_daily_zst_B <- df_daily_B %>% filter((Zst == 9142 ))
+df_daily_zst_B <- df_daily_B %>% filter((Zst == 9320 ))  
 ggplot(df_daily_zst_B, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
@@ -146,13 +147,18 @@ df_mean_B <- df_daily_B %>%  group_by( Zst, Wotag) %>%
 df_dev_A <- df_mean_A %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 
-#identify days with normal traffic patterns
-df_dev_low_A <- df_mean_A %>% filter(DIFF_R1 == 0 | DIFF_R2 ==0 )
-df_dev_low_B <- df_mean_B %>% filter(DIFF_R1 < -1 | DIFF_R2 < -1 )
+# #identify days with normal traffic patterns
+# df_dev_low_A <- df_mean_A %>% filter(DIFF_R1 == 0 | DIFF_R2 ==0 )
+# df_dev_low_B <- df_mean_B %>% filter(DIFF_R1 < -1 | DIFF_R2 < -1 )
+
+#create DF for plotting deviations at indeitifed stations for entire month (not just when largest deviation occurs)
+df_plot_dev_A <- df_mean_A %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9026 ))
+df_plot_dev_B <- df_mean_B %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9285 ))
 
 #plot deviations at different stations
-ggplot(df_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(2,7) + theme_bw()
+ggplot(df_plot_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
 
+ggplot(df_plot_dev_B, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
 
 ```
 
@@ -177,7 +183,7 @@ Zst_lonlats_A <- df_lonlats %>% filter(DZ_Nr %in% selected_Zst)
 selected_Zst_B <- unique(df_mean_B$Zst)
 Zst_lonlats_B <- df_lonlats %>% filter(DZ_Nr %in% selected_Zst_B)
 
-
+#Add autbahn and Bundestrasse markers to map 
 
 map_A <- leaflet(Zst_lonlats_A) %>% addTiles() %>% 
   addCircleMarkers(lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red")
@@ -189,7 +195,8 @@ map_A <-  addCircleMarkers(map_A, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,l
 
 
 ```{r}
-#2.1
+#Add our network to map with stations marked in blue and red
+
 arcs <- read.csv("input/Arcs_Flooding.csv")
 nodes <- read.csv("input/Nodes_Flooding.csv")
 
@@ -210,10 +217,36 @@ m_org <- addCircleMarkers(m_org, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,l
 
 m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
 
+#marker for 9026
+ m_org <- addCircleMarkers(m_org, data =Zst_lonlats_A, lat = 47.80351657 ,lng = 12.301066 ,label = ~as.character(DZ_Nr), color = "darkorange")
+# 
+# # marker for 9147
+#  m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = 47.71463128 ,lng = 12.47605042 ,label = ~as.character(DZ_Nr), color = "darkorange")
+#  
+#  # marker for 9023
+#  m_org <- addCircleMarkers(m_org, data =Zst_lonlats_A, lat = 47.80598654 ,lng = 12.13809192 ,label = ~as.character(DZ_Nr), color = "darkorange")
+# 
+# # marker for 9121
+#  m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = 47.69261768 ,lng = 12.84981641 ,label = ~as.character(DZ_Nr), color = "deepskyblue")
+# 
+# # marker for 9285
+#  m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = 47.67129144 ,lng = 12.76316727 ,label = ~as.character(DZ_Nr), color = "deepskyblue")
+ 
+ # marker for 9028
+ m_org <- addCircleMarkers(m_org, data =Zst_lonlats_A, lat = 47.83238379 ,lng = 12.38918719 ,label = ~as.character(DZ_Nr), color = "darkorange")
+ # 
+ # # marker for 9109
+ # m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = 47.92615692 ,lng = 12.93863496 ,label = ~as.character(DZ_Nr), color = "darkorange")
+                            
 #show map
 m_org
 ```
 
+```{r}
+#create HTML to display map 
+mapshot(m_org,url = paste0(getwd(), "/map.html"))
+
+```
 
 ```{r}
 
@@ -227,6 +260,17 @@ plot(graph_BH, vertex.size = 3, layout=lo, vertex.label = NA)
 ```
 
 ```{r}
+#Color Legend for Centrality Plots
+
+colfunc <- colorRampPalette(c("blue","green",'yellow','red'))
+colfunc(100)
+plot(rep(1,100),col=colfunc(100),  pch=19,cex=3)
+
+```
+
+
+
+```{r}
 #Betweeness Centrality 
 
 #blue = 0 betweenes value, red = highest betweeness value 
@@ -236,12 +280,24 @@ between_vals <- centr_betw(graph_BH, directed = FALSE)$res
 graphCol_bet = pal(100)[as.numeric(cut(between_vals,breaks = 100))]
 
 plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+```
+
+```{r}
+#Eigenvector Centrality original map 
+
+eigen_vals <- centr_eigen(graph_BH)$vector
+graphCol_bet = pal(100)[as.numeric(cut(eigen_vals,breaks = 100))]
+
+plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
 ```
 
 
 ```{r}
-#Remove node where large deviation occurred
-arcs_dev <- read.csv("input/Arcs_Flooding_removed9028.csv")
+#Remove nodes where large deviation occurred -9028 & 9026
+arcs_dev <- read.csv("input/Arcs_Flooding_removed_9028_9026.csv")
 nodes_dev <- read.csv("input/Nodes_Flooding.csv")
 
 #create map with nodes
@@ -266,8 +322,14 @@ m_dev <- addCircleMarkers(m_dev, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,la
 #show map
 m_dev
 
+```
+
+```{r}
+#create HTML to display map 
+mapshot(m_dev,url = paste0(getwd(), "/map_dev.html"))
 
 ```
+
 
 ```{r}
 #create network graph from arc and nodes with deviation removed 
@@ -276,6 +338,7 @@ graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, 
 lo <- as.matrix(nodes_dev[,c("LON","LAT")])
 
 plot(graph_BH_dev, vertex.size = 3, layout=lo, vertex.label = NA)
+
 
 ```
 
@@ -290,6 +353,20 @@ pal = colorRampPalette(c("blue","green",'yellow','red'))
 between_vals_dev <- centr_betw(graph_BH_dev, directed = FALSE)$res
 
 graphCol_bet = pal(100)[as.numeric(cut(between_vals_dev,breaks = 100))]
+
+plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
+
+```{r}
+#Eigen Vector Centrality with deviaiton removed 
+
+#blue = 0 betweenes value, red = highest betweeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+
+eigen_vals_dev <- centr_eigen(graph_BH_dev)$vector
+graphCol_bet = pal(100)[as.numeric(cut(eigen_vals_dev,breaks = 100))]
 
 plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
@@ -308,7 +385,6 @@ graphCol_dev = rep("white",length(rel_change))
 nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= between_vals, betdev = between_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
 
 plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
-
 
 ```
 
@@ -342,10 +418,32 @@ m2
 ```
 
 ```{r}
-#Shortest Path Original Network 
+#create HTML to display map 
+mapshot(m2,url = paste0(getwd(), "/map_rel_diff.html"))
 
-node_from <- which(nodes$DZ_Nr == 9023) #9023
-node_to <- which(nodes$DZ_Nr == 9109)  #9109
+```
+
+```{r}
+#Eigenvector Centrality with deviaiton removed 
+
+#blue = 0 betweenes value, red = highest betweeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+eigen_vals_dev <- centr_eigen(graph_BH_dev)$vector
+
+graphCol_bet = pal(100)[as.numeric(cut(eigen_vals_dev,breaks = 100))]
+
+plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+```
+
+
+```{r}
+#Shortest Path Original Network - arcs not weighted
+
+node_from <- which(nodes$DZ_Nr == 9221) #9023
+node_to <- which(nodes$DZ_Nr == 9144)  #9109
 
 path <- shortest_paths(graph_BH, from = node_from, to = node_to, output = "both")
 path_vertices <- unlist(path$vpath)
@@ -360,25 +458,24 @@ lo <- as.matrix(nodes[,c("LON","LAT")])
 
 plot(graph_short, vertex.size = 15, layout=lo, vertex.label.cex = 0.1)
 
-
 ```
 
 ```{r}
 #Shortest path with arc weight - original map
 
-node_from <- which(nodes$DZ_Nr == 9023) #9023
-node_to <- which(nodes$DZ_Nr == 9109)  #9109
+node_from <- which(nodes$DZ_Nr == 9221) #9023
+node_to <- which(nodes$DZ_Nr == 9144)  #9109
 
 path_weight <- shortest_paths(graph_BH, from = node_from, to = node_to, output = "both", weights=arcs$ARC_LENGTH)
 path_vertices_w <- unlist(path_weight$vpath)
 path_edges_w <- unlist(path_weight$epath)
 
-graph_short <- graph_short %>% 
+graph_short_weight <- graph_BH %>% 
   set_vertex_attr("color", index=path_vertices_w, value="green") %>% 
+  set_edge_attr("color", value="gray") %>% 
   set_edge_attr("color", index=path_edges_w, value="green")
 
-plot(graph_short, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
-
+plot(graph_short_weight, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
 
 
 ```
@@ -387,17 +484,21 @@ plot(graph_short, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
 #Shortest path with arc weight in leaflet map - original map 
 
 #color nodes and vertices of shortest path on map 
-m_org <- addCircleMarkers(m_org, data = nodes %>% filter(DZ_Nr %in% names(path_vertices_w)), lat = ~LAT ,lng = ~LON , color = "orange", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE)
+m_org <- addCircleMarkers(m_org, data = nodes %>% filter(DZ_Nr %in% names(path_vertices_w)), lat = ~LAT ,lng = ~LON , color = "mediumorchid1", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE)
 
 m_org
+
 ```
 
 ```{r}
-#Shortest Path Deviation Network 
+#Shortest Path Deviation Network Graph
 graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
+```
 
-node_from <- which(nodes$DZ_Nr == 9023) #9023
-node_to <- which(nodes$DZ_Nr == 9109)  #9109
+
+```{r}
+node_from <- which(nodes$DZ_Nr == 9221) #9023
+node_to <- which(nodes$DZ_Nr == 9144)  #9109
 
 path_dev <- shortest_paths(graph_BH_dev, from = node_from, to = node_to, output = "both")
 path_vertices_dev <- unlist(path_dev$vpath)
@@ -411,28 +512,39 @@ graph_short_dev <- graph_BH_dev %>%
 lo <- as.matrix(nodes[,c("LON","LAT")])
 
 plot(graph_short_dev, vertex.size = 15, layout=lo, vertex.label.cex = 0.1)
+```
 
+
+```{r}
 #Shortest path with arc weight - deviation map
 
-node_from <- which(nodes$DZ_Nr == 9023) #9023
-node_to <- which(nodes$DZ_Nr == 9109)  #9109
+node_from <- which(nodes$DZ_Nr == 9221) #9023
+node_to <- which(nodes$DZ_Nr == 9144)  #9109
 
 path_weight_dev <- shortest_paths(graph_BH_dev, from = node_from, to = node_to, output = "both", weights=arcs_dev$ARC_LENGTH)
 path_vertices_w_dev <- unlist(path_weight_dev$vpath)
 path_edges_w_dev <- unlist(path_weight_dev$epath)
 
-graph_short_dev <- graph_short_dev %>% 
+graph_short_dev_weight <- graph_BH_dev %>% 
   set_vertex_attr("color", index=path_vertices_w_dev, value="green") %>% 
   set_edge_attr("color", index=path_edges_w_dev, value="green")
 
-plot(graph_short_dev, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
+plot(graph_short_dev_weight, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
 
 #Shortest path with arc weight in leaflet map - deviation map 
 
 #color nodes and vertices of shortest path on map 
-m_dev <- addCircleMarkers(m_dev, data = nodes_dev %>% filter(DZ_Nr %in% names(path_vertices_w_dev)), lat = ~LAT ,lng = ~LON , color = "orange", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE)
+m_dev <- addCircleMarkers(m_dev, data = nodes_dev %>% filter(DZ_Nr %in% names(path_vertices_w_dev)), lat = ~LAT ,lng = ~LON , color = "darkturquoise", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE) 
+
+m_dev <- addCircleMarkers(m_dev, data = nodes %>% filter(DZ_Nr %in% names(path_vertices_w)), lat = ~LAT ,lng = ~LON , color = "yellow", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE) 
+
+
+
 
 m_dev
+
+#create HTML to display map 
+mapshot(m_dev,url = paste0(getwd(), "/shortest_path_dev.html"))
 
 ```
 
