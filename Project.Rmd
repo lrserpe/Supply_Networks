@@ -1,6 +1,8 @@
 #Group 5 
 
 ```{r}
+#Section 1.0
+#import necessary libraries 
 library(dplyr)
 library(ggplot2)
 library(leaflet)
@@ -9,8 +11,9 @@ library(mapview)
 ```
 
 ```{r}
-#Reformat data downloaded from BAST
+#Section 1.1 - only necessary to run if new txt file is retrieved from BAST website
 
+#Reformat data downloaded from BAST to isolate A level roads in June 
 df_all<- read.table("2013_A_S.txt", sep = ";", header=TRUE)
 
 #Filter by land (column 9 for bayern)
@@ -23,7 +26,9 @@ df_A_2013 <- df_all %>% filter(Land %in% c(9))
 ```
 
 ```{r}
-#read in B level data
+#Section 1.2 - only necessary to run if new txt file is retrieved from BAST website
+
+#Reformat data downloaded from BAST to isolate B level roads in June 
 df_all_B<- read.table("2013_B_S.txt", sep = ";", header=TRUE)
 
 #Filter by land (column 9 for bayern)
@@ -40,28 +45,21 @@ write.csv(df_date_range_B, file = "dataB_2013_BH_June.csv")
 
 
 ```{r}
+#Section 2.0 - create dataframe with A(BH) and B(BB) level road data
+
 df_BH <- read.csv("input/dataA_2013_BH_June.csv")
 df_BB <-  read.csv("input/dataB_2013_BH_June.csv")
 ```
 
 
-```{r}
-##Remove Cell ####
-#Filter by Date
-df_date_range <- df_BH %>% filter(Datum>130531 & Datum<130701 )
-#write June data to csv
-write.csv(df_date_range, file = "dataA_2013_BH_June.csv")
-
-df_date_range2 <- df_BH %>% filter(Datum>130131 & Datum<131201 )
-```
-
 
 ```{r}
+#Section 3.0 - Option to plot traffic in both directions at specific counting station 
 
 df_BH_zst1 <-  df_BH %>% filter((Zst == 9171 ))
 
 
-#plot of all reverse and forward counts at each station in June
+#plot of all reverse and forward counts at selected station in June
 ggplot(df_BH_zst1, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
   geom_line(aes(color = "R1")) + 
   geom_line(aes(y=KFZ_R2, color = "R2")) +       #plot reverse direction
@@ -72,7 +70,7 @@ ggplot(df_BH_zst1, aes(x=Stunde, y = KFZ_R1)) +   #plot forward direction
 
 
 ```{r}
-#Finding deviations 
+#Section 4.0 -Rearrange data to report daily total counts for each day of the month 
 
 #For all data points with the same station, date, weekday
 #Sum hourly values to daily values 
@@ -89,9 +87,9 @@ df_daily_B <- df_BB %>% group_by( Zst, Datum, Wotag)%>%
 
 
 ```{r}
-
+#Section 4.1 - Establish new index based on number of days in the month of June 
  
-#create new column to assign dates a number (1-30)
+#create new column to assign dates a number (1-31)
 alldates <- sort(unique(df_daily_A$Datum)) 
 alldates_values <- seq(1:length(alldates))
 names(alldates_values) <- alldates
@@ -103,18 +101,23 @@ df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)])
 ```
 
 ```{r}
-#Filter by station to observe plot 
+#Section 5.0 - Option to plot traffic flow at specific A level station and specific B level station to compare
+
+#Filter by station to observe plot - select A level station 
 df_daily_zst_A <- df_daily_A %>% filter((Zst == 9026 ))
 #9295 B
 #9023 A
                                   
-#plot 
+#plot for A
 ggplot(df_daily_zst_A, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
   facet_wrap(~Zst) + theme_bw()
 
+#Filter by station to observe plot - select B level station 
 df_daily_zst_B <- df_daily_B %>% filter((Zst == 9320 ))  
+
+#plot for B
 ggplot(df_daily_zst_B, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
@@ -124,7 +127,8 @@ ggplot(df_daily_zst_B, aes(x = day)) +
 
 
 ```{r}
-#calculate relative difference from mean 
+#Section 6.0 - Determine mean traffic flow at each counting station over the month of June and calculate the relative difference 
+
 #filter data to from groups with same counter device and weekday
 #use mutate function to add column with mean of sum KZR1, KZR2
 #use mutate again to add column for difference between mean and KZR1 value
@@ -142,8 +146,9 @@ df_mean_B <- df_daily_B %>%  group_by( Zst, Wotag) %>%
 
 
 ```{r}
+#Section 6.1 - Find stations with noteworthy deviations
 
-#identify columns where relative diff is below 50%
+#identify columns where relative diff is below 50% - create new dataframes to store these values 
 df_dev_A <- df_mean_A %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 
@@ -151,18 +156,22 @@ df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 # df_dev_low_A <- df_mean_A %>% filter(DIFF_R1 == 0 | DIFF_R2 ==0 )
 # df_dev_low_B <- df_mean_B %>% filter(DIFF_R1 < -1 | DIFF_R2 < -1 )
 
-#create DF for plotting deviations at indeitifed stations for entire month (not just when largest deviation occurs)
+#create DF for plotting deviations at identified stations for entire month (not just when largest deviation occurs)
 df_plot_dev_A <- df_mean_A %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9026 ))
 df_plot_dev_B <- df_mean_B %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9285 ))
 
 #plot deviations at different stations
+#A level roads
 ggplot(df_plot_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
 
+#B level roads
 ggplot(df_plot_dev_B, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
 
 ```
 
 ```{r}
+#Section 6.2 - Optional section to plot mean at specific station 
+
 df_mean_one_zst <- df_mean_A %>% filter((Zst == 9023 ))
 
 #plot relative difference 
@@ -172,6 +181,8 @@ ggplot(df_mean_one_zst, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +g
 
 
 ```{r}
+#Section 7.0 - Create a map with the A level(red) and B(blue) level stations marked 
+
 library(leaflet)
 
 df_lonlats <- read.table("input/Jawe2013.csv", sep = ";", header=TRUE) %>% 
@@ -195,6 +206,8 @@ map_A <-  addCircleMarkers(map_A, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,l
 
 
 ```{r}
+#Section 7.1 - add graph network to the map 
+
 #Add our network to map with stations marked in blue and red
 
 arcs <- read.csv("input/Arcs_Flooding.csv")
@@ -212,10 +225,16 @@ for(i in 1:nrow(arcs)){
 }
 
 
-#add station markers
+#add station markers for A level roads
 m_org <- addCircleMarkers(m_org, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
+#add station markers for B level roads
 m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
+```
+
+
+```{r}
+#Section 7.2 - Optional additon for marking stations of interest (for presentation only)
 
 #marker for 9026
  m_org <- addCircleMarkers(m_org, data =Zst_lonlats_A, lat = 47.80351657 ,lng = 12.301066 ,label = ~as.character(DZ_Nr), color = "darkorange")
@@ -237,18 +256,22 @@ m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,la
  # 
  # # marker for 9109
  # m_org <- addCircleMarkers(m_org, data =Zst_lonlats_B, lat = 47.92615692 ,lng = 12.93863496 ,label = ~as.character(DZ_Nr), color = "darkorange")
-                            
-#show map
-m_org
 ```
 
+
 ```{r}
+#Section 7.3 - Plot original map and save it 
+
+#show map of original network graph (all arcs and nodes included)
+m_org
+
 #create HTML to display map 
 mapshot(m_org,url = paste0(getwd(), "/map.html"))
 
 ```
 
 ```{r}
+#Section 7.4 - Plot original network graph without map
 
 #create network graph from arc and nodes
 graph_BH <- graph_from_data_frame(d = arcs[,2:3], vertices = nodes, directed = FALSE)
@@ -260,6 +283,8 @@ plot(graph_BH, vertex.size = 3, layout=lo, vertex.label = NA)
 ```
 
 ```{r}
+#Section 8.0 - Centrality Measures of Original Network (all nodes/arcs in place)
+
 #Color Legend for Centrality Plots
 
 colfunc <- colorRampPalette(c("blue","green",'yellow','red'))
@@ -271,32 +296,66 @@ plot(rep(1,100),col=colfunc(100),  pch=19,cex=3)
 
 
 ```{r}
-#Betweeness Centrality 
+#Section 8.1 - Betweeness Centrality 
 
 #blue = 0 betweenes value, red = highest betweeness value 
 pal = colorRampPalette(c("blue","green",'yellow','red'))
 
+#Use centr_betw function to determine betweeness centrality of our graph and save in DF
 between_vals <- centr_betw(graph_BH, directed = FALSE)$res
 graphCol_bet = pal(100)[as.numeric(cut(between_vals,breaks = 100))]
 
+#plot network with nodes colored based on betweeness value 
 plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
 
 ```
 
 ```{r}
-#Eigenvector Centrality original map 
+#Section 8.2 - Eigenvector Centrality original map 
 
+#determine eigen values of nodes in our graph 
 eigen_vals <- centr_eigen(graph_BH)$vector
 graphCol_bet = pal(100)[as.numeric(cut(eigen_vals,breaks = 100))]
 
+#plot network with nodes colored based on eigen value 
 plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
 ```
 
+```{r}
+#Section 8.3 - Closeness Centrality original map 
+ 
+#determine closeness values of nodes in our graph 
+close_vals  <- centr_clo(graph_BH)$res
+
+graphCol_bet = pal(100)[as.numeric(cut(close_vals,breaks = 100))]
+
+#plot network with nodes colored based on closeness value 
+plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
 
 ```{r}
-#Remove nodes where large deviation occurred -9028 & 9026
+#Section 8.4 - Degree Centrality original map 
+
+#determine degree values of nodes in our graph 
+deg_vals  <- vals_deg <- centr_degree(graph_BH)$res
+
+graphCol_bet = pal(100)[as.numeric(cut(deg_vals,breaks = 100))]
+
+#plot network with nodes colored based on closeness value 
+plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+
+```
+
+```{r}
+#Section 9.0 - Create new graph with arcs removed at points where largest deviations occurred and display it on a map 
+
+#Remove paths where large deviations occurred (9028 & 9026)
+#Read in new csv where identified nodes are removed from arcs csv, nodes file is renamed but unchanged 
 arcs_dev <- read.csv("input/Arcs_Flooding_removed_9028_9026.csv")
 nodes_dev <- read.csv("input/Nodes_Flooding.csv")
 
@@ -311,12 +370,14 @@ for(i in 1:nrow(arcs_dev)){
   m_dev <- addPolylines(m_dev, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) #, stroke = F)
 }
 
+#show graph 
 m_dev
 
 
-#add station markers
+#add station markers A level roads 
 m_dev <- addCircleMarkers(m_dev, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
+#add station markers B level roads 
 m_dev <- addCircleMarkers(m_dev, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue") 
 
 #show map
@@ -325,17 +386,20 @@ m_dev
 ```
 
 ```{r}
-#create HTML to display map 
+#create HTML to display map
 mapshot(m_dev,url = paste0(getwd(), "/map_dev.html"))
 
 ```
 
 
 ```{r}
+#Section 9.1 - isolate network graph from map 
+
 #create network graph from arc and nodes with deviation removed 
 graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
 
 lo <- as.matrix(nodes_dev[,c("LON","LAT")])
+
 
 plot(graph_BH_dev, vertex.size = 3, layout=lo, vertex.label = NA)
 
@@ -344,39 +408,32 @@ plot(graph_BH_dev, vertex.size = 3, layout=lo, vertex.label = NA)
 
 
 ```{r}
+#Section 10.0  - Betweeness Centrality with deviation removed 
 
-#Betweeness Centrality with deviaiton removed 
+#Ensure correct deviation graph is used 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
 
 #blue = 0 betweenes value, red = highest betweeness value 
 pal = colorRampPalette(c("blue","green",'yellow','red'))
 
+#Use centr_betw function to determine betweeness centrality of our graph and save in DF
 between_vals_dev <- centr_betw(graph_BH_dev, directed = FALSE)$res
 
 graphCol_bet = pal(100)[as.numeric(cut(between_vals_dev,breaks = 100))]
 
+#plot network with nodes colored based on betweeness value 
 plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
 ```
 
-```{r}
-#Eigen Vector Centrality with deviaiton removed 
-
-#blue = 0 betweenes value, red = highest betweeness value 
-pal = colorRampPalette(c("blue","green",'yellow','red'))
-
-
-eigen_vals_dev <- centr_eigen(graph_BH_dev)$vector
-graphCol_bet = pal(100)[as.numeric(cut(eigen_vals_dev,breaks = 100))]
-
-plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
-
-
-```
 
 ```{r}
 
-#Compare betweeness centrality before and after deviation removed 
+#Section 10.1 - Compare betweeness centrality before and after deviation removed 
 
+#calculate relative diff between original and modified graph 
+#if betweeness value org > 0 then relative diff = rel change calc
+#else rel diff = 0
 rel_change <- ifelse(between_vals > 0, (between_vals_dev - between_vals)/between_vals, 0)
 
 #plot igraph:
@@ -384,14 +441,15 @@ rel_change <- ifelse(between_vals > 0, (between_vals_dev - between_vals)/between
 graphCol_dev = rep("white",length(rel_change))
 nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= between_vals, betdev = between_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
 
+#show which nodes changed on graph 
 plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
 
 ```
 
 ```{r}
+#Section 10.2 - plot relative diff of betweeness centrality on leaflet map
 
-#plot relative diff on leaflet map
-# color scheme: such that we have white for no change
+# color scheme:where white  = no change, red = decrease, blue = increase 
 minVal <- abs(min(rel_change))
 maxVal <- abs(max(rel_change))
 rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(maxVal*10)
@@ -418,13 +476,17 @@ m2
 ```
 
 ```{r}
+#Section 10.3
 #create HTML to display map 
-mapshot(m2,url = paste0(getwd(), "/map_rel_diff.html"))
+mapshot(m2,url = paste0(getwd(), "/map_rel_diff_betw.html"))
 
 ```
 
 ```{r}
-#Eigenvector Centrality with deviaiton removed 
+#Section 11.0 - Eigenvector Centrality with deviation removed 
+
+#Ensure correct deviation graph is used 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
 
 #blue = 0 betweenes value, red = highest betweeness value 
 pal = colorRampPalette(c("blue","green",'yellow','red'))
@@ -435,6 +497,211 @@ graphCol_bet = pal(100)[as.numeric(cut(eigen_vals_dev,breaks = 100))]
 
 plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
+
+```
+
+```{r}
+#Section 11.1 - Compare eigen vector centrality before and after deviation removed 
+
+#calculate relative diff between original and modified graph 
+#if betweeness value org > 0 then relative diff = rel change calc
+#else rel diff = 0
+rel_change <- ifelse(eigen_vals > 0, (eigen_vals_dev - eigen_vals)/eigen_vals, 0)
+
+#plot igraph:
+#use 3 colors: red - decrease, white - no change, blue - increase
+graphCol_dev = rep("white",length(rel_change))
+nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= eigen_vals, betdev = eigen_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
+
+#show which nodes changed on graph 
+plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
+
+```{r}
+#Section 11.2 - plot relative diff of eigen vector centrality on leaflet map
+
+# color scheme:where white  = no change, red = decrease, blue = increase 
+minVal <- abs(min(rel_change))
+maxVal <- abs(max(rel_change))
+rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(maxVal*10)
+rc2 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(minVal*10)
+rampcols <- c(rc2, rc1)
+col_pal <- colorNumeric(palette = rampcols, domain =rel_change)
+
+
+m2 <- leaflet(nodes_dev) %>% addTiles() 
+
+for(i in 1:nrow(arcs_dev)){
+  node_ids <- c(arcs_dev$SOURCE_ID[i], arcs_dev$TARGET_ID[i])
+  df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
+  m2 <- addPolylines(m2, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) 
+}
+m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2
+
+```
+
+```{r}
+#Section 11.3
+#create HTML to display map 
+mapshot(m2,url = paste0(getwd(), "/map_rel_diff_eigen.html"))
+
+```
+
+```{r}
+#Section 12.0 - Closeness Centrality with deviation removed 
+
+#Ensure correct deviation graph is used 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
+
+#blue = 0 closeness value, red = highest closeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+close_vals_dev <- centr_clo(graph_BH_dev)$res
+
+graphCol_bet = pal(100)[as.numeric(cut(close_vals_dev,breaks = 100))]
+
+plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+
+```
+
+```{r}
+#Section 12.1 - Compare Closeness centrality before and after deviation removed 
+
+#First replace NAN values for the two nodes which are no loner connected to any other nodes with -1
+close_vals_dev[is.na(close_vals_dev)] = -1
+
+#calculate relative diff between original and modified graph 
+#if closeness value org > 0 then relative diff = rel change calc
+#else rel diff = 0
+rel_change <- ifelse(close_vals > 0, (close_vals_dev - close_vals)/close_vals, 0)
+
+#plot igraph:
+#use 3 colors: red - decrease, white - no change, blue - increase
+graphCol_dev = rep("white",length(rel_change))
+nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= close_vals, betdev = close_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
+
+#show which nodes changed on graph 
+plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
+
+```{r}
+#Section 12.2 - plot relative diff of Closeness centrality on leaflet map
+
+# color scheme:where white  = no change, red = decrease, blue = increase 
+minVal <- abs(min(rel_change))
+maxVal <- abs(max(rel_change))
+rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(maxVal*10)
+rc2 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(minVal*10)
+rampcols <- c(rc2, rc1)
+col_pal <- colorNumeric(palette = rampcols, domain =rel_change)
+
+
+m2 <- leaflet(nodes_dev) %>% addTiles() 
+
+for(i in 1:nrow(arcs_dev)){
+  node_ids <- c(arcs_dev$SOURCE_ID[i], arcs_dev$TARGET_ID[i])
+  df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
+  m2 <- addPolylines(m2, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) 
+}
+m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2
+
+```
+
+```{r}
+#Section 12.3
+#create HTML to display map 
+mapshot(m2,url = paste0(getwd(), "/map_rel_diff_close.html"))
+
+```
+
+```{r}
+
+#Section 13.0  - Degree Centrality with deviation removed 
+
+#Ensure correct deviation graph is used 
+graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, directed = FALSE)
+
+#blue = 0 betweenes value, red = highest betweeness value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
+#Use degree_betw function to determine degree centrality of our graph and save in DF
+deg_vals_dev <- centr_degree(graph_BH_dev)$res
+
+graphCol_bet = pal(100)[as.numeric(cut(deg_vals_dev,breaks = 100))]
+
+#plot network with nodes colored based on degree value 
+plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
+
+
+```{r}
+
+#Section 13.1 - Compare degree centrality before and after deviation removed 
+
+#calculate relative diff between original and modified graph 
+#if degree value org > 0 then relative diff = rel change calc
+#else rel diff = 0
+rel_change <- ifelse(deg_vals > 0, (deg_vals_dev - deg_vals)/deg_vals, 0)
+
+#plot igraph:
+#use 3 colors: red - decrease, white - no change, blue - increase
+graphCol_dev = rep("white",length(rel_change))
+nodes_dev <- nodes %>% mutate(rel_change = rel_change, bet= deg_vals, betdev = deg_vals_dev) %>% mutate(rel_color = ifelse(rel_change==0, "White", ifelse(rel_change<0, "red", "blue")))
+
+#show which nodes changed on graph 
+plot(graph_BH_dev, vertex.color=nodes_dev$rel_color, vertex.size = 5, vertex.label = NA, layout=lo)
+
+```
+
+```{r}
+#Section 13.2 - plot relative diff of degree centrality on leaflet map
+
+# color scheme:where white  = no change, red = decrease, blue = increase 
+minVal <- abs(min(rel_change))
+maxVal <- abs(max(rel_change))
+rc1 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(.000001*10)  #(maxVal*10)
+rc2 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(minVal*10)
+rampcols <- c(rc2, rc1)
+col_pal <- colorNumeric(palette = rampcols, domain =rel_change)
+
+
+m2 <- leaflet(nodes_dev) %>% addTiles() 
+
+for(i in 1:nrow(arcs_dev)){
+  node_ids <- c(arcs_dev$SOURCE_ID[i], arcs_dev$TARGET_ID[i])
+  df_pol <- nodes %>% filter(DZ_Nr %in% node_ids)
+  m2 <- addPolylines(m2, data = df_pol, lng = ~LON, lat = ~LAT, opacity = 0.9, group = "mylines", weight = 2) 
+}
+m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+
+m2
+
+```
+
+```{r}
+#Section 13.3
+#create HTML to display map 
+mapshot(m2,url = paste0(getwd(), "/map_rel_diff_deg.html"))
 
 ```
 
