@@ -104,7 +104,7 @@ df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)])
 #Section 5.0 - Option to plot traffic flow at specific A level station and specific B level station to compare
 
 #Filter by station to observe plot - select A level station 
-df_daily_zst_A <- df_daily_A %>% filter((Zst == 9026 ))
+df_daily_zst_A <- df_daily_A %>% filter((Zst == 9028 ))
 #9295 B
 #9023 A
                                   
@@ -158,7 +158,7 @@ df_dev_B <- df_mean_B %>% filter(DIFF_R1 < -50 | DIFF_R2 < -50 )
 
 #create DF for plotting deviations at identified stations for entire month (not just when largest deviation occurs)
 df_plot_dev_A <- df_mean_A %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9026 ))
-df_plot_dev_B <- df_mean_B %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9285 ))
+df_plot_dev_B <- df_mean_B %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9320 ))
 
 #plot deviations at different stations
 #A level roads
@@ -185,6 +185,8 @@ ggplot(df_mean_one_zst, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +g
 
 library(leaflet)
 
+#read in long/lat for counting stations from file
+#convert WGS84 coordinates to Lon, Lat values using as(numberic....)
 df_lonlats <- read.table("input/Jawe2013.csv", sep = ";", header=TRUE) %>% 
   mutate(lat = as.numeric(gsub(",",".",Koor_WGS84_N)), 
          lon =  as.numeric(gsub(",",".",Koor_WGS84_E)))
@@ -291,6 +293,9 @@ colfunc <- colorRampPalette(c("blue","green",'yellow','red'))
 colfunc(100)
 plot(rep(1,100),col=colfunc(100),  pch=19,cex=3)
 
+#blue = 0 lowest value, red = highest  value 
+pal = colorRampPalette(c("blue","green",'yellow','red'))
+
 ```
 
 
@@ -329,10 +334,31 @@ plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, la
 #determine closeness values of nodes in our graph 
 close_vals  <- centr_clo(graph_BH)$res
 
+close_vals_opt2 <- closeness(
+                              graph_BH,
+                              vids = V(graph_BH),
+                              mode = c("all"),
+                              weights = arcs$ARC_LENGTH,
+                              normalized = TRUE,
+                              cutoff = -1
+                            )
+close_vals_opt3 <- harmonic_centrality(
+                        graph_BH,
+                        vids = V(graph_BH),
+                        mode = c( "all"),
+                        weights = arcs$ARC_LENGTH,
+                        normalized = FALSE,
+                        cutoff = -1
+                      )
+
 graphCol_bet = pal(100)[as.numeric(cut(close_vals,breaks = 100))]
+graphCol_bet_opt2 = pal(100)[as.numeric(cut(close_vals_opt2,breaks = 100))]
+graphCol_bet_opt3 = pal(100)[as.numeric(cut(close_vals_opt3,breaks = 100))]
 
 #plot network with nodes colored based on closeness value 
 plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+plot(graph_BH, vertex.color=graphCol_bet_opt2, vertex.size = 5, vertex.label = NA, layout=lo)
+plot(graph_BH, vertex.color=graphCol_bet_opt3, vertex.size = 5, vertex.label = NA, layout=lo)
 
 ```
 
@@ -467,6 +493,7 @@ for(i in 1:nrow(arcs_dev)){
 }
 m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
 
+
 m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
 m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
@@ -563,11 +590,37 @@ graph_BH_dev <- graph_from_data_frame(d = arcs_dev[,2:3], vertices = nodes_dev, 
 #blue = 0 closeness value, red = highest closeness value 
 pal = colorRampPalette(c("blue","green",'yellow','red'))
 
+#Line to check graph level centrality index
+check <- centr_clo(graph_BH_dev)$centralization
+
+#node level centrality score 
 close_vals_dev <- centr_clo(graph_BH_dev)$res
+close_vals__dev_opt2 <- closeness(
+                              graph_BH_dev,
+                              vids = V(graph_BH_dev),
+                              mode = c("all"),
+                              weights = arcs_dev$ARC_LENGTH,
+                              normalized = TRUE,
+                              cutoff = -1
+                            )
+close_vals__dev_opt3 <- harmonic_centrality(
+                        graph_BH_dev,
+                        vids = V(graph_BH_dev),
+                        mode = c( "all"),
+                        weights = arcs_dev$ARC_LENGTH,
+                        normalized = FALSE,
+                        cutoff = -1
+                      )
 
 graphCol_bet = pal(100)[as.numeric(cut(close_vals_dev,breaks = 100))]
+graphCol_bet_opt2 = pal(100)[as.numeric(cut(close_vals__dev_opt2,breaks = 100))]
+graphCol_bet_opt3 = pal(100)[as.numeric(cut(close_vals__dev_opt3,breaks = 100))]
 
+#plot network with nodes colored based on closeness value 
 plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
+plot(graph_BH_dev, vertex.color=graphCol_bet_opt2, vertex.size = 5, vertex.label = NA, layout=lo)
+plot(graph_BH_dev, vertex.color=graphCol_bet_opt3, vertex.size = 5, vertex.label = NA, layout=lo)
+
 
 
 ```
@@ -797,8 +850,11 @@ graph_short_dev_weight <- graph_BH_dev %>%
   set_edge_attr("color", index=path_edges_w_dev, value="green")
 
 plot(graph_short_dev_weight, vertex.size = 10, layout=lo, vertex.label.cex = 0.1)
+```
 
-#Shortest path with arc weight in leaflet map - deviation map 
+
+```{r}
+#Shortest paths with arc weight in leaflet map - deviation map + original map
 
 #color nodes and vertices of shortest path on map 
 m_dev <- addCircleMarkers(m_dev, data = nodes_dev %>% filter(DZ_Nr %in% names(path_vertices_w_dev)), lat = ~LAT ,lng = ~LON , color = "darkturquoise", radius = 3, opacity = 1, label = ~as.character(DZ_Nr), fill = FALSE) 
