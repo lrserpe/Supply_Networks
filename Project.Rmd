@@ -104,7 +104,7 @@ df_daily_B <- df_daily_B %>% mutate(day = alldates_values[as.character(Datum)])
 #Section 5.0 - Option to plot traffic flow at specific A level station and specific B level station to compare
 
 #Filter by station to observe plot - select A level station 
-df_daily_zst_A <- df_daily_A %>% filter((Zst == 9028 ))
+df_daily_zst_A <- df_daily_A %>% filter((Zst == 9026 ))
 #9295 B
 #9023 A
                                   
@@ -112,15 +112,17 @@ df_daily_zst_A <- df_daily_A %>% filter((Zst == 9028 ))
 ggplot(df_daily_zst_A, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
+  labs(y = "Car Count", x = "Day in June") +
   facet_wrap(~Zst) + theme_bw()
 
 #Filter by station to observe plot - select B level station 
-df_daily_zst_B <- df_daily_B %>% filter((Zst == 9320 ))  
+df_daily_zst_B <- df_daily_B %>% filter((Zst == 9552 ))  
 
 #plot for B
 ggplot(df_daily_zst_B, aes(x = day)) +
   geom_line(aes(y=SUM_KFZ_R1, color = "R1")) +
   geom_line(aes(y=SUM_KFZ_R2, color = "R2")) + 
+  labs(y = "Car Count", x = "Day in June") +
   facet_wrap(~Zst) + theme_bw()
 
 ```
@@ -162,10 +164,14 @@ df_plot_dev_B <- df_mean_B %>% filter(DIFF_R1 | DIFF_R2 )%>% filter((Zst == 9320
 
 #plot deviations at different stations
 #A level roads
-ggplot(df_plot_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
+ggplot(df_plot_dev_A, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) +
+  labs(y = "% Relative Diff in Traffic Flow", x = " Day in June") +
+  facet_wrap(~Zst) + xlim(1,30) + theme_bw()
 
 #B level roads
-ggplot(df_plot_dev_B, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) + facet_wrap(~Zst) + xlim(1,10) + theme_bw()
+ggplot(df_plot_dev_B, aes(x=day)) + geom_line(aes(y=DIFF_R1, color = "R1")) +geom_line(aes(y=DIFF_R2, color = "R2")) +
+  labs(y = "% Relative Diff in Traffic Flow", x = " Day in June") +
+  facet_wrap(~Zst) + xlim(1,30) + theme_bw()
 
 ```
 
@@ -203,6 +209,13 @@ map_A <- leaflet(Zst_lonlats_A) %>% addTiles() %>%
 
 map_A <-  addCircleMarkers(map_A, data =Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "blue")
 
+
+
+```
+
+```{r}
+#create HTML to display map
+mapshot(map_A,url = paste0(getwd(), "/map_no_graph_dev_highlighted.html"))
 
 ```
 
@@ -276,6 +289,7 @@ mapshot(m_org,url = paste0(getwd(), "/map.html"))
 #Section 7.4 - Plot original network graph without map
 
 #create network graph from arc and nodes
+
 graph_BH <- graph_from_data_frame(d = arcs[,2:3], vertices = nodes, directed = FALSE)
 
 lo <- as.matrix(nodes[,c("LON","LAT")])
@@ -301,16 +315,16 @@ pal = colorRampPalette(c("blue","green",'yellow','red'))
 
 
 ```{r}
-#Section 8.1 - Betweeness Centrality 
+#Section 8.1 - Betweenness Centrality 
 
-#blue = 0 betweenes value, red = highest betweeness value 
+#blue = 0 betweenness value, red = highest betweenness value 
 pal = colorRampPalette(c("blue","green",'yellow','red'))
 
-#Use centr_betw function to determine betweeness centrality of our graph and save in DF
+#Use centr_betw function to determine betweenness centrality of our graph and save in DF
 between_vals <- centr_betw(graph_BH, directed = FALSE)$res
 graphCol_bet = pal(100)[as.numeric(cut(between_vals,breaks = 100))]
 
-#plot network with nodes colored based on betweeness value 
+#plot network with nodes colored based on betweenness value 
 plot(graph_BH, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
 
 
@@ -493,10 +507,10 @@ for(i in 1:nrow(arcs_dev)){
 }
 m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
 
-
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
-
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+#uncomment to add station markers 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+# 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
 m2
 
@@ -533,7 +547,7 @@ plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA
 #calculate relative diff between original and modified graph 
 #if betweeness value org > 0 then relative diff = rel change calc
 #else rel diff = 0
-rel_change <- ifelse(eigen_vals > 0, (eigen_vals_dev - eigen_vals)/eigen_vals, 0)
+rel_change <- ifelse(eigen_vals_dev > 0, (eigen_vals_dev - eigen_vals)/eigen_vals, 0)
 
 #plot igraph:
 #use 3 colors: red - decrease, white - no change, blue - increase
@@ -566,9 +580,10 @@ for(i in 1:nrow(arcs_dev)){
 }
 m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
 
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
-
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+#uncomment to add station markers 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+# 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
 m2
 
@@ -603,7 +618,7 @@ close_vals__dev_opt2 <- closeness(
                               normalized = TRUE,
                               cutoff = -1
                             )
-close_vals__dev_opt3 <- harmonic_centrality(
+close_vals_dev_opt3 <- harmonic_centrality(
                         graph_BH_dev,
                         vids = V(graph_BH_dev),
                         mode = c( "all"),
@@ -614,7 +629,7 @@ close_vals__dev_opt3 <- harmonic_centrality(
 
 graphCol_bet = pal(100)[as.numeric(cut(close_vals_dev,breaks = 100))]
 graphCol_bet_opt2 = pal(100)[as.numeric(cut(close_vals__dev_opt2,breaks = 100))]
-graphCol_bet_opt3 = pal(100)[as.numeric(cut(close_vals__dev_opt3,breaks = 100))]
+graphCol_bet_opt3 = pal(100)[as.numeric(cut(close_vals_dev_opt3,breaks = 100))]
 
 #plot network with nodes colored based on closeness value 
 plot(graph_BH_dev, vertex.color=graphCol_bet, vertex.size = 5, vertex.label = NA, layout=lo)
@@ -628,13 +643,18 @@ plot(graph_BH_dev, vertex.color=graphCol_bet_opt3, vertex.size = 5, vertex.label
 ```{r}
 #Section 12.1 - Compare Closeness centrality before and after deviation removed 
 
-#First replace NAN values for the two nodes which are no loner connected to any other nodes with -1
+#First replace NAN values for the two nodes which are no loner connected to any other nodes with -1 if comparing cent_clo values
 close_vals_dev[is.na(close_vals_dev)] = -1
 
 #calculate relative diff between original and modified graph 
 #if closeness value org > 0 then relative diff = rel change calc
 #else rel diff = 0
-rel_change <- ifelse(close_vals > 0, (close_vals_dev - close_vals)/close_vals, 0)
+
+#Uncomment to compare using centr_clo values 
+#rel_change <- ifelse(close_vals > 0, (close_vals_dev - close_vals)/close_vals, 0)
+
+#Use harmonic centrality for comparability 
+rel_change <- ifelse(close_vals_opt3 > 0, (close_vals_dev_opt3 - close_vals_opt3)/close_vals_opt3, 0)
 
 #plot igraph:
 #use 3 colors: red - decrease, white - no change, blue - increase
@@ -667,9 +687,10 @@ for(i in 1:nrow(arcs_dev)){
 }
 m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
 
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
-
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+#add station markers if desired
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+# 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
 m2
 
@@ -743,9 +764,10 @@ for(i in 1:nrow(arcs_dev)){
 }
 m2 <- addCircleMarkers(m2, lat = ~LAT ,lng = ~LON, weight = 1, opacity = 1, radius = 5,fillOpacity = 1, fillColor = ~col_pal(rel_change), label = ~as.character(rel_change)) %>% addLegend(position = "bottomleft", pal = col_pal, values = ~rel_change, title = as.character("Dev"),opacity = 1) 
 
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
-
-m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+#Uncomment to add Staiton Markers
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_A, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
+# 
+# m2 <- addCircleMarkers(m2, data = Zst_lonlats_B, lat = ~lat ,lng = ~lon ,label = ~as.character(DZ_Nr), color = "red", radius = 5, fill = FALSE)
 
 m2
 
